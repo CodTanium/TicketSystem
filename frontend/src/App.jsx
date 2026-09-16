@@ -6,7 +6,7 @@ function App() {
     const [code, setCode] = useState("");
     const [message, setMessage] = useState("");
 
-    const API_URL = "http://localhost:3000/api/tickets";
+    const API_URL = "https://ticketsystem-c4my.onrender.com/api/tickets";
 
 
     // GET TICKETS
