@@ -10,7 +10,7 @@ const PORT = 3000;
 
 // CORS
 app.use(cors({
-    origin: "http://localhost:5173"
+    origin: "http://98.128.180.6:5173"
 }));
 
 
@@ -22,6 +22,6 @@ app.use(express.json());
 app.use("/api/tickets", ticketRoutes);
 
 
-app.listen(PORT, () => {
+app.listen(PORT,"0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
