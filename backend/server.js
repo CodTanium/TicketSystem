@@ -10,8 +10,10 @@ const PORT = 3000;
 
 // CORS
 app.use(cors({
-    origin: "http://98.128.180.6:5173"
+    origin:
+        "http://localhost:5173"
 }));
+
 
 
 // JSON
