@@ -11,7 +11,7 @@ const PORT = 3000;
 // CORS
 app.use(cors({
     origin:
-        "http://localhost:5173"
+        "https://ticketsystem-1frontend.onrender.com"
 }));
 
 
