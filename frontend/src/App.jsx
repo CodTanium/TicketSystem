@@ -1,159 +1,151 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./App.css";
+
+// Set VITE_API_URL in frontend/.env.local to use a local backend, e.g.
+// VITE_API_URL=http://localhost:3000/api/tickets
+const API_URL = import.meta.env.VITE_API_URL || "https://ticketsystem-c4my.onrender.com/api/tickets";
+
+// Calls the API and returns the JSON body; throws with the server's error text on failure.
+async function request(url, options) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.error || `Request failed (${response.status})`);
+    }
+    return data;
+}
 
 function App() {
     const [tickets, setTickets] = useState([]);
     const [code, setCode] = useState("");
-    const [message, setMessage] = useState("");
+    const [status, setStatus] = useState({ text: "", kind: "info" });
+    const [busy, setBusy] = useState(false);
 
-    const API_URL = "https://ticketsystem-c4my.onrender.com/api/tickets";
-                    
+    const show = (text, kind = "info") => setStatus({ text, kind });
 
-    // GET TICKETS
-    const getTickets = async () => {
+    const getTickets = useCallback(async () => {
         try {
-            const response = await fetch(API_URL);
-            const data = await response.json();
-
-            setTickets(data);
-        } catch (error) {
-            setMessage("Could not connect to server");
+            setTickets(await request(API_URL));
+        } catch {
+            show("Could not connect to the server. It may be waking up; try Refresh in a moment.", "error");
         }
-    };
+    }, []);
 
-
-    // CREATE TICKET
-    const createTicket = async () => {
+    // Runs one action at a time, shows its result and reloads the list.
+    const run = async (action) => {
+        setBusy(true);
         try {
-            const response = await fetch(API_URL, {
-                method: "POST"
-            });
-
-            const data = await response.json();
-
-            setMessage(`New ticket: ${data.code}`);
-
+            show(await action(), "success");
+        } catch (error) {
+            show(error.message, "error");
+        } finally {
+            setBusy(false);
             getTickets();
-        } catch (error) {
-            setMessage("Could not create ticket");
         }
     };
 
+    const createTicket = () =>
+        run(async () => {
+            const data = await request(API_URL, { method: "POST" });
+            return `New ticket: ${data.code}`;
+        });
 
-    // USE TICKET
-    const useTicket = async () => {
-        try {
-            const response = await fetch(`${API_URL}/use`, {
+    const useTicket = (event) => {
+        event.preventDefault();
+        if (!code.trim()) return;
+        run(async () => {
+            const data = await request(`${API_URL}/use`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    code: code
-                })
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code: code.trim() }),
             });
-
-            const data = await response.json();
-
-            setMessage(data.message || data.error);
-
             setCode("");
-
-            getTickets();
-        } catch (error) {
-            setMessage("Could not use ticket");
-        }
+            return data.message;
+        });
     };
 
-
-    // DELETE TICKET
-    const deleteTicket = async (id) => {
-        try {
-            const response = await fetch(`${API_URL}/${id}`, {
-                method: "DELETE"
-            });
-
-            const data = await response.json();
-
-            setMessage(data.message || data.error);
-
-            getTickets();
-        } catch (error) {
-            setMessage("Could not delete ticket");
-        }
-    };
-
+    const deleteTicket = (id) =>
+        run(async () => (await request(`${API_URL}/${id}`, { method: "DELETE" })).message);
 
     useEffect(() => {
         getTickets();
-    }, []);
+    }, [getTickets]);
 
+    const unused = tickets.filter((t) => !t.used).length;
 
     return (
-        <div className="container">
+        <main className="container">
+            <header>
+                <h1>Ticket System</h1>
+                <p className="muted">Create one-time ticket codes and check them in at the door.</p>
+            </header>
 
-            <h1>Ticket System</h1>
-
-            <section>
-                <h2>Create Ticket</h2>
-
-                <button onClick={createTicket}>
+            <section className="card">
+                <h2>Create a ticket</h2>
+                <button className="primary" onClick={createTicket} disabled={busy}>
                     Create ticket
                 </button>
             </section>
 
-
-            <section>
-                <h2>Use Ticket</h2>
-
-                <input
-                    type="text"
-                    placeholder="Enter ticket code"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                />
-
-                <button onClick={useTicket}>
-                    Use ticket
-                </button>
+            <section className="card">
+                <h2>Use a ticket</h2>
+                <form onSubmit={useTicket} className="row">
+                    <label htmlFor="code" className="sr-only">Ticket code</label>
+                    <input
+                        id="code"
+                        type="text"
+                        placeholder="Ticket code, e.g. 3FA9C2B1"
+                        value={code}
+                        maxLength={8}
+                        autoComplete="off"
+                        onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    />
+                    <button className="primary" type="submit" disabled={busy || !code.trim()}>
+                        Use ticket
+                    </button>
+                </form>
             </section>
 
+            {status.text && (
+                <p className={`status ${status.kind}`} role="status">
+                    {status.text}
+                </p>
+            )}
 
-            <p>{message}</p>
+            <section className="card">
+                <div className="row spread">
+                    <h2>
+                        Tickets <span className="muted">({tickets.length} total, {unused} unused)</span>
+                    </h2>
+                    <button onClick={getTickets} disabled={busy}>Refresh</button>
+                </div>
 
-
-            <section>
-                <h2>Tickets</h2>
-
-                <button onClick={getTickets}>
-                    Refresh
-                </button>
-
-                <ul>
-                    {tickets.map(ticket => (
-                        <li key={ticket.id}>
-
-                            {ticket.code} -
-
-                            {ticket.used
-                                ? " Used"
-                                : " Not used"
-                            }
-
-                            {!ticket.used && (
-                                <button
-                                    onClick={() => deleteTicket(ticket.id)}
-                                >
-                                    Delete
-                                </button>
-                            )}
-
-                        </li>
-                    ))}
-                </ul>
+                {tickets.length === 0 ? (
+                    <p className="muted">No tickets yet. Create the first one above.</p>
+                ) : (
+                    <ul className="tickets">
+                        {tickets.map((ticket) => (
+                            <li key={ticket.id}>
+                                <code>{ticket.code}</code>
+                                <span className={`badge ${ticket.used ? "used" : "unused"}`}>
+                                    {ticket.used ? "Used" : "Not used"}
+                                </span>
+                                {!ticket.used && (
+                                    <button
+                                        className="danger"
+                                        onClick={() => deleteTicket(ticket.id)}
+                                        disabled={busy}
+                                        aria-label={`Delete ticket ${ticket.code}`}
+                                    >
+                                        Delete
+                                    </button>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </section>
-
-        </div>
+        </main>
     );
 }
 

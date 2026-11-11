@@ -1,29 +1,8 @@
-const express = require("express");
-const cors = require("cors");
+const app = require("./app");
 
-const ticketRoutes = require("./routes/ticketRoutes");
+// Hosts such as Render pass the port in PORT; 3000 is the local default.
+const PORT = Number(process.env.PORT) || 3000;
 
-const app = express();
-
-const PORT = 3000;
-
-
-// CORS
-app.use(cors({
-    origin:
-        "https://ticketsystem-1frontend.onrender.com"
-}));
-
-
-
-// JSON
-app.use(express.json());
-
-
-// Routes
-app.use("/api/tickets", ticketRoutes);
-
-
-app.listen(PORT,"0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
